@@ -11,7 +11,7 @@ data Country = Finland | Sweden    | Norway      | Russia  | Estonia |
 colors :: [Color]
 colors = [Red, Blue, Green, Purple]
 
---  colorsPermitted: [] means any color you like
+--  colorsPermitted: [] means any color from global colors
 data Node = Node {nameOf::Country, colorOf::Color, neighborsOf::[Country], colorsPermitted::[Color] } deriving (Eq, Show, Read)
 
 nameEq :: Country -> Node -> Bool
