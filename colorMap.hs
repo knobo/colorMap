@@ -1,7 +1,6 @@
 module Main where
 import Data.List
 import Maybe
-import Control.Monad
 
 --  Types
 data Color =  Red | Blue | Green | Purple | None deriving (Eq, Show, Read)
