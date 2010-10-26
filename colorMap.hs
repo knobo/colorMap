@@ -1,21 +1,35 @@
 module Main where
 import Data.List
 import Maybe
+import Control.Monad
+import Control.Monad.Trans
+import Control.Applicative
+import System.Console.ANSI
+import System.Environment
 
 -- Types
-data Color = Red | Blue | Green | Purple | None deriving (Eq, Show, Read)
+
 data Country = Finland | Sweden | Norway | Russia | Estonia |
                Latvia | Lithuania | Kaliningrad | Belarus | Ukraine |
                Poland deriving (Eq, Show, Read)
 
-colors :: [Color]
-colors = [Red, Blue, Green, Purple]
 
--- colorsPermitted: [] means any color from global colors
+-- colorsPermitted: [] means any color is allowed
 data Node = Node {nameOf::Country, 
                   colorOf::Color, 
                   neighborsOf::[Country], 
-                  colorsPermitted::[Color] } deriving (Eq, Show, Read)
+                  colorsPermitted::[Color] } deriving (Show)
+
+instance Eq Color where -- Needed for notElem
+  Black   == Black   = True
+  Red     == Red     = True
+  Green   == Green   = True
+  Yellow  == Yellow  = True
+  Blue    == Blue    = True
+  Magenta == Magenta = True
+  Cyan    == Cyan    = True
+  White   == White   = True
+  _       == _       = False
 
 nameEq :: Country -> Node -> Bool
 nameEq name node = name == (nameOf node)
@@ -29,8 +43,8 @@ getNode graph name = find (nameEq name) graph
 -- The program
 
 doColors :: Node -> [Color]
-doColors node@(Node _ _ _ []) =     [ c | c <- colors ]
-doColors node@(Node _ _ _ colors) = [ c | c <- colors ]
+doColors node@(Node _ _ _ [])     = take 4 [Black .. ]
+doColors node@(Node _ _ _ colors) = colors 
 
 colorMap :: [Node] -> [[Node]]
 colorMap [] = [[]]
@@ -53,23 +67,33 @@ mapData =[(Finland,     [Sweden, Norway, Russia],  []),
           (Ukraine,     [Poland, Belarus, Russia], []),
           (Poland,      [Kaliningrad, Lithuania, Belarus, Ukraine],   [])]
 
-mkMap :: [(Country, [Country], [Color])] -> [Node]
-mkMap nodes = [(Node name None neighbors colors) | (name, neighbors, colors) <- nodes]
+theMap :: [Node]
+theMap = do (name, neighbors, colors) <- mapData 
+            return (Node name Black neighbors colors)
 
-theMap = mkMap mapData
+printNode :: (Show a, Show a1) => a -> a1 -> IO ()
+printNode name color = putStrLn $ (show name) ++ ": " ++ (show color)
 
--- Printing function
-printNode :: Node -> (Country, Color)
-printNode (Node name color _ _) = (name, color)
+printWithColor :: Node -> IO ()
+printWithColor (Node name color _ _) = do setSGR [SetColor Foreground Vivid color]
+                                          printNode name color
 
-printMap :: [Node] -> [(Country,Color)]
-printMap gMap = (map printNode gMap)
+printWithoutColor :: Node -> IO ()
+printWithoutColor (Node name color _ _) = printNode name color
 
-printSolution :: [[Node]] -> [[(Country, Color)]]
-printSolution graph = map printMap graph
 
--- run: printSolution (colorMap theMap)
--- main = do print (printMap (head (colorMap theMap)))
---       print (printMap (last (colorMap1 theMap)))
+printMap :: (a -> IO b) -> [a] -> IO ()
+printMap printer map = do mapM_ printer map
+                          putStrLn ""
 
-main = do print (printSolution (colorMap theMap))
+dispatch :: [[Char]] -> (Node -> IO ())
+dispatch [] = printWithoutColor
+dispatch (arg:xs) = 
+  let (Just printer) = mplus (lookup arg [("color", printWithColor)])
+                       (Just printWithoutColor) in
+  printer
+                        
+
+main = do printer <- dispatch <$> getArgs
+          forM_ (colorMap theMap) (printMap printer)
+
